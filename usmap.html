@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>US Economy & Population Map</title>
+    <!-- Load D3.js -->
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f8f9fa;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        h1 {
+            color: #2c3e50;
+            margin-bottom: 5px;
+        }
+
+        p.subtitle {
+            color: #7f8c8d;
+            margin-bottom: 30px;
+        }
+
+        #map-container {
+            width: 100%;
+            max-width: 1000px;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            padding: 20px;
+            box-sizing: border-box;
+        }
+
+        /* State Path Styling */
+        .state {
+            fill: #bdc3c7;
+            stroke: #ffffff;
+            stroke-width: 1;
+            transition: fill 0.2s ease, stroke-width 0.2s ease;
+            cursor: pointer;
+        }
+
+        .state:hover {
+            fill: #3498db;
+            stroke: #2980b9;
+            stroke-width: 2;
+        }
+
+        /* Tooltip Styling */
+        #tooltip {
+            position: absolute;
+            text-align: left;
+            padding: 15px;
+            font-size: 14px;
+            background: rgba(255, 255, 255, 0.95);
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            pointer-events: none;
+            opacity: 0;
+            box-shadow: 0 8px 15px rgba(0, 0, 0, 0.15);
+            color: #2c3e50;
+            min-width: 220px;
+            z-index: 10;
+            transform: translate(-50%, -100%);
+            margin-top: -15px;
+        }
+
+        #tooltip h3 {
+            margin: 0 0 10px 0;
+            color: #2980b9;
+            border-bottom: 1px solid #ecf0f1;
+            padding-bottom: 5px;
+        }
+
+        .info-row {
+            margin-bottom: 8px;
+            line-height: 1.4;
+        }
+
+        .label {
+            font-weight: 600;
+            color: #34495e;
+        }
+
+        #loading {
+            text-align: center;
+            font-size: 18px;
+            color: #7f8c8d;
+            padding: 50px;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>United States Economic Map</h1>
+    <p class="subtitle">Hover over a state to view its population and top economic drivers.</p>
+
+    <div id="map-container">
+        <div id="loading">Loading map data...</div>
+    </div>
+    
+    <div id="tooltip"></div>
+
+    <script>
+        // Comprehensive dataset for all 50 states + DC
+        const stateData = {
+            "Alabama": { pop: "5.1 Million", drivers: "Automotive, Aerospace, Agriculture" },
+            "Alaska": { pop: "733,000", drivers: "Oil & Gas, Tourism, Seafood" },
+            "Arizona": { pop: "7.4 Million", drivers: "Manufacturing, Real Estate, Healthcare" },
+            "Arkansas": { pop: "3.0 Million", drivers: "Agriculture, Retail, Manufacturing" },
+            "California": { pop: "39.0 Million", drivers: "Technology, Entertainment, Agriculture" },
+            "Colorado": { pop: "5.8 Million", drivers: "Technology, Aerospace, Tourism" },
+            "Connecticut": { pop: "3.6 Million", drivers: "Finance, Insurance, Real Estate" },
+            "Delaware": { pop: "1.0 Million", drivers: "Chemicals, Finance, Agriculture" },
+            "District of Columbia": { pop: "678,000", drivers: "Government, Professional Services, Tourism" },
+            "Florida": { pop: "22.6 Million", drivers: "Tourism, Agriculture, Aerospace" },
+            "Georgia": { pop: "11.0 Million", drivers: "Logistics, Film Production, Agriculture" },
+            "Hawaii": { pop: "1.4 Million", drivers: "Tourism, Defense, Agriculture" },
+            "Idaho": { pop: "1.9 Million", drivers: "Agriculture, Technology, Manufacturing" },
+            "Illinois": { pop: "12.5 Million", drivers: "Manufacturing, Finance, Agriculture" },
+            "Indiana": { pop: "6.8 Million", drivers: "Manufacturing, Agriculture, Healthcare" },
+            "Iowa": { pop: "3.2 Million", drivers: "Agriculture, Manufacturing, Insurance" },
+            "Kansas": { pop: "2.9 Million", drivers: "Aviation, Agriculture, Manufacturing" },
+            "Kentucky": { pop: "4.5 Million", drivers: "Manufacturing, Agriculture, Logistics" },
+            "Louisiana": { pop: "4.6 Million", drivers: "Oil & Gas, Tourism, Agriculture" },
+            "Maine": { pop: "1.4 Million", drivers: "Tourism, Healthcare, Forestry" },
+            "Maryland": { pop: "6.2 Million", drivers: "Bio-tech, Defense, IT" },
+            "Massachusetts": { pop: "7.0 Million", drivers: "Education, Healthcare, Technology" },
+            "Michigan": { pop: "10.0 Million", drivers: "Automotive, Manufacturing, Technology" },
+            "Minnesota": { pop: "5.7 Million", drivers: "Healthcare, Manufacturing, Agriculture" },
+            "Mississippi": { pop: "2.9 Million", drivers: "Agriculture, Manufacturing, Tourism" },
+            "Missouri": { pop: "6.2 Million", drivers: "Aerospace, Agriculture, Manufacturing" },
+            "Montana": { pop: "1.1 Million", drivers: "Agriculture, Tourism, Mining" },
+            "Nebraska": { pop: "2.0 Million", drivers: "Agriculture, Insurance, Freight" },
+            "Nevada": { pop: "3.2 Million", drivers: "Tourism, Mining, Logistics" },
+            "New Hampshire": { pop: "1.4 Million", drivers: "Manufacturing, Healthcare, Tourism" },
+            "New Jersey": { pop: "9.3 Million", drivers: "Pharmaceuticals, Finance, Logistics" },
+            "New Mexico": { pop: "2.1 Million", drivers: "Oil & Gas, Tourism, Defense" },
+            "New York": { pop: "19.6 Million", drivers: "Finance, Healthcare, Media" },
+            "North Carolina": { pop: "10.8 Million", drivers: "Technology, Finance, Manufacturing" },
+            "North Dakota": { pop: "783,000", drivers: "Oil & Gas, Agriculture, Technology" },
+            "Ohio": { pop: "11.8 Million", drivers: "Manufacturing, Healthcare, Finance" },
+            "Oklahoma": { pop: "4.0 Million", drivers: "Oil & Gas, Aviation, Agriculture" },
+            "Oregon": { pop: "4.2 Million", drivers: "Technology, Forestry, Manufacturing" },
+            "Pennsylvania": { pop: "13.0 Million", drivers: "Healthcare, Manufacturing, Finance" },
+            "Rhode Island": { pop: "1.1 Million", drivers: "Healthcare, Tourism, Manufacturing" },
+            "South Carolina": { pop: "5.3 Million", drivers: "Automotive, Tourism, Agriculture" },
+            "South Dakota": { pop: "919,000", drivers: "Agriculture, Finance, Tourism" },
+            "Tennessee": { pop: "7.1 Million", drivers: "Healthcare, Automotive, Entertainment" },
+            "Texas": { pop: "30.5 Million", drivers: "Energy, Technology, Manufacturing" },
+            "Utah": { pop: "3.4 Million", drivers: "Technology, Tourism, Mining" },
+            "Vermont": { pop: "647,000", drivers: "Tourism, Agriculture, Manufacturing" },
+            "Virginia": { pop: "8.7 Million", drivers: "Defense, Technology, Agriculture" },
+            "Washington": { pop: "7.8 Million", drivers: "Technology, Aerospace, Agriculture" },
+            "West Virginia": { pop: "1.8 Million", drivers: "Mining, Healthcare, Tourism" },
+            "Wisconsin": { pop: "5.9 Million", drivers: "Manufacturing, Agriculture, Healthcare" },
+            "Wyoming": { pop: "584,000", drivers: "Mining, Tourism, Agriculture" },
+            "Puerto Rico": { pop: "3.2 Million", drivers: "Manufacturing, Pharmaceuticals, Tourism" }
+        };
+
+        // Set up SVG dimensions
+        const width = 960;
+        const height = 600;
+
+        // Select container and append SVG
+        const svg = d3.select("#map-container")
+            .append("svg")
+            .attr("viewBox", `0 0 ${width} ${height}`)
+            .attr("preserveAspectRatio", "xMidYMid meet")
+            .style("width", "100%")
+            .style("height", "auto");
+
+        // Set up US Map Projection
+        const projection = d3.geoAlbersUsa()
+            .translate([width / 2, height / 2])
+            .scale(1200);
+
+        const path = d3.geoPath().projection(projection);
+        const tooltip = d3.select("#tooltip");
+
+        // Load standard US States GeoJSON
+        d3.json("https://raw.githubusercontent.com/PublicaMundi/MappingAPI/master/data/geojson/us-states.json")
+            .then(function(us) {
+                
+                // Remove loading text
+                d3.select("#loading").remove();
+
+                // Draw states
+                svg.selectAll("path")
+                    .data(us.features)
+                    .enter()
+                    .append("path")
+                    .attr("d", path)
+                    .attr("class", "state")
+                    .on("mouseover", function(event, d) {
+                        const stateName = d.properties.name;
+                        const data = stateData[stateName] || { pop: "Data unavailable", drivers: "Data unavailable" };
+
+                        // Bring hovered state to front so borders don't overlap
+                        d3.select(this).raise();
+
+                        tooltip.transition()
+                            .duration(200)
+                            .style("opacity", 1);
+                            
+                        tooltip.html(`
+                            <h3>${stateName}</h3>
+                            <div class="info-row"><span class="label">Population:</span> ${data.pop}</div>
+                            <div class="info-row"><span class="label">Top Industries:</span> ${data.drivers}</div>
+                        `);
+                    })
+                    .on("mousemove", function(event) {
+                        // Position tooltip exactly above the mouse cursor
+                        tooltip
+                            .style("left", (event.pageX) + "px")
+                            .style("top", (event.pageY) + "px");
+                    })
+                    .on("mouseout", function(event, d) {
+                        tooltip.transition()
+                            .duration(300)
+                            .style("opacity", 0);
+                    });
+            })
+            .catch(function(error) {
+                d3.select("#loading").text("Error loading map data. Please check your internet connection.");
+                console.error("Error loading GeoJSON:", error);
+            });
+    </script>
+</body>
+</html>
